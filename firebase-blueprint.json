@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "Quiz": {
+      "title": "Quiz",
+      "description": "A quiz template containing metadata and creator info.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the quiz." },
+        "description": { "type": "string", "description": "A short summary of the quiz content." },
+        "creatorId": { "type": "string", "description": "The UID of the user who created this quiz." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation." },
+        "backgroundImageUrl": { "type": "string", "description": "Global background image URL for the quiz." }
+      },
+      "required": ["title", "creatorId"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "A single question within a quiz.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "description": "The question text." },
+        "options": { "type": "array", "description": "List of possible answers." },
+        "correctIndex": { "type": "integer", "description": "The index of the correct option in the options array." },
+        "timeLimit": { "type": "integer", "description": "Time allowed for this question in seconds." }
+      },
+      "required": ["text", "options", "correctIndex", "timeLimit"]
+    },
+    "GameSession": {
+      "title": "GameSession",
+      "description": "An active multiplayer game instance.",
+      "type": "object",
+      "properties": {
+        "quizId": { "type": "string", "description": "Reference to the Quiz being played." },
+        "hostId": { "type": "string", "description": "The UID of the host." },
+        "pin": { "type": "string", "description": "A unique 6-digit PIN for players to join." },
+        "status": {
+          "type": "string",
+          "enum": ["LOBBY", "STARTING", "QUESTION", "REVEAL", "LEADERBOARD", "FINAL"],
+          "description": "Current phase of the game."
+        },
+        "currentQuestionIndex": { "type": "integer", "description": "The currently active question index." },
+        "questionStartedAt": { "type": "number", "description": "Timestamp (ms) when the current question was displayed." },
+        "questionEndsAt": { "type": "number", "description": "Timestamp (ms) when the current question window expires." },
+        "isPaused": { "type": "boolean", "description": "Whether the game is temporarily paused." },
+        "backgroundImageUrl": { "type": "string", "description": "Realtime background image URL for the session." }
+      },
+      "required": ["quizId", "hostId", "pin", "status"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "A participant in a game session.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name selected by the player." },
+        "score": { "type": "integer", "description": "Cumulative score in the session." },
+        "lastCorrect": { "type": "boolean", "description": "Whether the last response was correct." },
+        "streak": { "type": "integer", "description": "Current win streak." },
+        "lastResponseTime": { "type": "number", "description": "Time taken for the last answer in ms." }
+      },
+      "required": ["name", "score"]
+    },
+    "Response": {
+      "title": "Response",
+      "description": "A player's answer to a specific question.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The UID of the responding player." },
+        "questionIndex": { "type": "integer", "description": "The index of the question." },
+        "choice": { "type": "integer", "description": "The indexed choice made by the player." },
+        "isCorrect": { "type": "boolean", "description": "Correctness flag." },
+        "score": { "type": "integer", "description": "Points awarded for this specific response." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the response was submitted." }
+      },
+      "required": ["uid", "questionIndex", "choice", "isCorrect", "score"]
+    }
+  },
+  "firestore": {
+    "/quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Collection of quiz templates."
+    },
+    "/quizzes/{quizId}/questions/{questionId}": {
+      "schema": "Question",
+      "description": "Questions for a specific quiz."
+    },
+    "/game_sessions/{sessionId}": {
+      "schema": "GameSession",
+      "description": "Active game sessions."
+    },
+    "/game_sessions/{sessionId}/players/{playerId}": {
+      "schema": "Player",
+      "description": "Players currently in the session."
+    },
+    "/game_sessions/{sessionId}/responses/{responseId}": {
+      "schema": "Response",
+      "description": "Individual answers for auditing and scoring."
+    }
+  }
+}

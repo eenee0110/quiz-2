@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Phase 3: Primitives ---
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Helper for relational checks ---
+    function isHost(sessionId) {
+      return get(/databases/$(database)/documents/game_sessions/$(sessionId)).data.hostId == request.auth.uid;
+    }
+
+    // --- Entity Validations ---
+    function isValidQuiz(data) {
+      return data.keys().hasAll(['title', 'creatorId'])
+        && data.title is string && data.title.size() <= 200
+        && data.creatorId == request.auth.uid;
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['quizId', 'hostId', 'pin', 'status'])
+        && data.quizId is string && data.quizId.size() <= 128
+        && data.hostId == request.auth.uid
+        && data.pin is string && data.pin.size() == 6
+        && data.status in ['LOBBY', 'STARTING', 'QUESTION', 'REVEAL', 'LEADERBOARD', 'FINAL'];
+    }
+
+    function isValidPlayer(data, playerId) {
+      return data.keys().hasAll(['name', 'score', 'uid'])
+        && data.name is string && data.name.size() <= 64
+        && data.score is int && data.score >= 0
+        && data.uid == playerId;
+    }
+
+    function isValidResponse(data, responseId) {
+      return data.keys().hasAll(['uid', 'questionIndex', 'choice', 'isCorrect', 'score', 'timestamp'])
+        && responseId == string(data.questionIndex) + '_' + data.uid
+        && data.questionIndex is int
+        && data.choice is int
+        && data.isCorrect is bool
+        && data.score is int && data.score <= 1000;
+    }
+
+    // --- Match Blocks ---
+
+    match /quizzes/{quizId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(quizId) && isValidQuiz(incoming());
+      allow update: if isSignedIn() && isValidId(quizId) && isValidQuiz(incoming())
+        && (incoming().creatorId == existing().creatorId || existing().creatorId == null);
+      allow delete: if isSignedIn() && existing().creatorId == request.auth.uid;
+
+      match /questions/{questionId} {
+        allow read: if true;
+        allow write: if isSignedIn() && (get(/databases/$(database)/documents/quizzes/$(quizId)).data.creatorId == request.auth.uid || get(/databases/$(database)/documents/quizzes/$(quizId)).data.creatorId == null);
+      }
+    }
+
+    match /game_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(sessionId) && isValidSession(incoming());
+      allow update: if isSignedIn() && (
+        // Only host can update session states
+        (existing().hostId == request.auth.uid && isValidSession(incoming()))
+      );
+
+      match /players/{playerId} {
+        allow read: if true;
+        
+        allow create: if get(/databases/$(database)/documents/game_sessions/$(sessionId)).data.status in ['LOBBY', 'STARTING', 'QUESTION', 'REVEAL', 'LEADERBOARD', 'FINAL']
+          && isValidPlayer(incoming(), playerId)
+          && incoming().score == 0;
+
+        allow update: if incoming().name == existing().name
+          && incoming().uid == existing().uid
+          && (
+            // Action: Submit Answer Score
+            (incoming().score >= existing().score && (incoming().score - existing().score) <= 1000)
+            || (incoming().score == existing().score) // Non-scoring updates
+          )
+          && (incoming().diff(existing()).affectedKeys().hasOnly(['score', 'lastCorrect', 'streak', 'lastResponseTime']));
+      }
+
+      match /responses/{responseId} {
+        allow read: if isHost(sessionId);
+        
+        allow create: if isValidResponse(incoming(), responseId)
+          && get(/databases/$(database)/documents/game_sessions/$(sessionId)).data.status == 'QUESTION';
+      }
+    }
+  }
+}
