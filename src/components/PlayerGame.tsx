@@ -228,12 +228,24 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
   useEffect(() => {
     if (step !== 'PLAYING' || !session?.id) return;
 
+    let isQuestionStatus = false;
+    let latestPlayersData: any[] = [];
+    
     const unsubSession = onSnapshot(doc(db, 'game_sessions', session.id), async (docSnap) => {
       if (!docSnap.exists()) {
         console.warn("Session doc deleted unexpectedly:", session.id);
         return;
       }
       const sData = docSnap.data() as GameSession;
+      
+      const wasQuestion = isQuestionStatus;
+      isQuestionStatus = sData.status === 'QUESTION';
+      
+      // If we just finished a question, apply the latest player data we collected
+      if (wasQuestion && !isQuestionStatus && latestPlayersData.length > 0) {
+          setAllPlayers(latestPlayersData.map(d => ({ id: d.id, ...d.data() } as Player)));
+      }
+      
       console.log(`Session status update: ${sData.status}, Index: ${sData.currentQuestionIndex}`);
       setSession(prev => ({ ...prev, ...sData }));
       setIsPaused(sData.status === 'QUESTION' && sData.currentQuestionIndex >= 0 && (sData as any).isPaused);
@@ -267,7 +279,13 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
     });
 
     const unsubPlayers = onSnapshot(collection(db, `game_sessions/${session.id}/players`), (snap) => {
-      setAllPlayers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Player)));
+      // Always store locally so we have the latest without re-fetching
+      latestPlayersData = snap.docs;
+      
+      // Prevent render flooding during the question
+      if (!isQuestionStatus) {
+         setAllPlayers(latestPlayersData.map(d => ({ id: d.id, ...d.data() } as Player)));
+      }
     });
 
     const uid = getPlayerId();
@@ -499,9 +517,10 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
                           </div>
                           <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[2px] shrink-0">
                              <motion.div 
-                               initial={{ width: `${session && (session as any).questionEndsAt ? Math.max(0, Math.min(100, (((session as any).questionEndsAt - Date.now()) / (currentQuestion.timeLimit * 1000)) * 100)) : 100}%` }}
+                               key={session?.currentQuestionIndex}
+                               initial={{ width: `${session && (session as any).questionStartedAt ? Math.max(0, Math.min(100, 100 - ((Date.now() - (session as any).questionStartedAt) / (currentQuestion.timeLimit * 1000)) * 100)) : 100}%` }}
                                animate={{ width: "0%" }}
-                               transition={{ duration: session && (session as any).questionEndsAt ? Math.max(0, ((session as any).questionEndsAt - Date.now()) / 1000) : currentQuestion.timeLimit, ease: "linear" }}
+                               transition={{ duration: session && (session as any).questionStartedAt ? Math.max(0, currentQuestion.timeLimit - ((Date.now() - (session as any).questionStartedAt) / 1000)) : currentQuestion.timeLimit, ease: "linear" }}
                                className="h-full bg-[#00FF00] rounded-full shadow-[0_0_10px_#00FF00]"
                              />
                           </div>
