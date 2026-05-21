@@ -424,12 +424,12 @@ export default function HostGame({ quizId, onClose }: HostGameProps) {
                            initial={{ opacity: 0, y: 20 }}
                            animate={{ opacity: 1, y: 0 }}
                            transition={{ delay: 0.2 + i * 0.1 }}
-                           className="bg-white/5 p-6 sm:p-8 rounded-[2rem] border-2 border-white/5 font-black italic tracking-tighter flex items-center gap-4 sm:gap-8 relative overflow-hidden shadow-xl"
+                           className="bg-white/5 p-6 sm:p-8 rounded-[2rem] border-2 border-white/5 font-black italic tracking-tight flex items-center gap-4 sm:gap-8 relative overflow-hidden shadow-xl"
                         >
                            <div className={`w-8 h-8 sm:w-12 sm:h-12 flex-shrink-0 rounded-xl sm:rounded-2xl ${['bg-[#FF4444]', 'bg-[#4444FF]', 'bg-[#FFFF44]', 'bg-[#44FF44]'][i]} shadow-[0_4px_15px_rgba(0,0,0,0.5)]`}></div>
-                           <span className={`leading-[0.9] pr-4 sm:pr-8 flex-1 whitespace-nowrap overflow-hidden text-ellipsis uppercase ${
-                             opt.length > 30 ? 'text-xs sm:text-sm md:text-base' : 
-                             opt.length > 15 ? 'text-sm sm:text-base md:text-lg' : 
+                           <span className={`leading-[1.1] pr-4 sm:pr-8 flex-1 whitespace-pre-wrap break-words uppercase ${
+                             opt.length > 50 ? 'text-xs sm:text-sm md:text-base' : 
+                             opt.length > 20 ? 'text-sm sm:text-base md:text-lg' : 
                              'text-lg sm:text-xl md:text-2xl lg:text-3xl'
                            }`}>{opt}</span>
                            <div className="absolute right-0 top-0 bottom-0 w-2 opacity-20" style={{ backgroundColor: ['#FF4444', '#4444FF', '#FFFF44', '#44FF44'][i] }}></div>
@@ -523,14 +523,14 @@ export default function HostGame({ quizId, onClose }: HostGameProps) {
               <motion.div 
                 initial={{ y: 50 }}
                 animate={{ y: 0 }}
-                className="bg-[#00FF00] text-black py-12 px-6 md:py-20 md:px-12 rounded-[3rem] md:rounded-[5rem] text-4xl sm:text-5xl md:text-[8vw] font-black uppercase italic tracking-[-0.08em] leading-[0.8] mb-16 shadow-2xl shadow-[#00FF00]/20 border-none relative overflow-hidden"
+                className="bg-[#00FF00] text-black py-12 px-6 md:py-20 md:px-12 rounded-[3rem] md:rounded-[5rem] font-black uppercase italic tracking-tight leading-[1] mb-16 shadow-2xl shadow-[#00FF00]/20 border-none relative overflow-hidden flex flex-col justify-center min-h-[250px] md:min-h-[350px]"
               >
-                <div className={`relative z-10 whitespace-nowrap overflow-hidden text-ellipsis ${
-                  currentQ.options[currentQ.correctIndex].length > 30 ? 'text-2xl sm:text-3xl md:text-5xl' :
-                  currentQ.options[currentQ.correctIndex].length > 15 ? 'text-3xl sm:text-4xl md:text-6xl' :
-                  ''
+                <div className={`relative z-10 whitespace-pre-wrap break-words w-full ${
+                  currentQ.options[currentQ.correctIndex].length > 50 ? 'text-2xl sm:text-3xl md:text-4xl' :
+                  currentQ.options[currentQ.correctIndex].length > 20 ? 'text-3xl sm:text-4xl md:text-5xl lg:text-6xl' :
+                  'text-4xl sm:text-5xl md:text-[6vw]'
                 }`}>{currentQ.options[currentQ.correctIndex]}</div>
-                <div className="absolute top-0 right-0 p-8 opacity-10"><CheckCircle2 className="w-[120px] h-[120px] md:w-[200px] md:h-[200px]" /></div>
+                <div className="absolute inset-y-0 right-0 flex items-center p-8 opacity-10 pointer-events-none"><CheckCircle2 className="w-[120px] h-[120px] md:w-[200px] md:h-[200px]" /></div>
               </motion.div>
               
               <div className="flex flex-wrap justify-center gap-4 mb-24">

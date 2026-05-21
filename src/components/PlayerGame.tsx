@@ -543,7 +543,11 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
                                       {SHAPES[i].icon}
                                    </div>
                                    <div className="text-left flex-1 min-w-0 flex items-center">
-                                      <span className="text-base sm:text-xl lg:text-3xl font-black italic tracking-[-0.05em] leading-[1] uppercase whitespace-normal break-words inline-block w-full">{opt}</span>
+                                      <span className={`font-black italic tracking-tight leading-[1.1] uppercase whitespace-pre-wrap break-words inline-block w-full ${
+                                        opt.length > 50 ? 'text-xs sm:text-sm md:text-base' : 
+                                        opt.length > 20 ? 'text-sm sm:text-base md:text-lg' : 
+                                        'text-base sm:text-xl lg:text-3xl'
+                                      }`}>{opt}</span>
                                    </div>
                                 </div>
                              </motion.button>
@@ -597,9 +601,13 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
                        <h2 className="text-5xl md:text-8xl font-black italic uppercase tracking-[-0.08em] leading-none mb-8 md:mb-12 break-words max-w-[90vw] mx-auto">{isCorrect ? 'ЗӨВ!' : 'БУРУУ!'}</h2>
                        
                        {!isCorrect && currentQuestion && (
-                          <div className="mb-8 md:mb-12 flex flex-col items-center bg-black/10 py-4 px-6 rounded-3xl border border-current/20">
+                          <div className="mb-8 md:mb-12 flex flex-col items-center bg-black/10 py-4 px-6 rounded-3xl border border-current/20 flex-shrink-0">
                              <div className="text-[10px] font-black uppercase tracking-[0.6em] opacity-60 mb-2">ЗӨВ ХАРИУЛТ:</div>
-                             <div className="text-xl sm:text-2xl font-black italic uppercase tracking-[-0.05em] leading-tight break-words max-w-[80vw] mx-auto opacity-90">{currentQuestion.options[currentQuestion.correctIndex]}</div>
+                             <div className={`font-black italic uppercase tracking-tight leading-tight whitespace-pre-wrap break-words max-w-[80vw] mx-auto opacity-90 ${
+                               currentQuestion.options[currentQuestion.correctIndex].length > 50 ? 'text-sm sm:text-base' : 
+                               currentQuestion.options[currentQuestion.correctIndex].length > 20 ? 'text-base sm:text-xl' : 
+                               'text-xl sm:text-2xl'
+                             }`}>{currentQuestion.options[currentQuestion.correctIndex]}</div>
                           </div>
                        )}
 
