@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getFirebaseAuth, db, OperationType, handleFirestoreError } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDocs, deleteDoc, writeBatch, query, orderBy } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Trash2, Save, ImageIcon, ArrowUp, ArrowDown, CheckCircle2, ChevronRight, Zap } from 'lucide-react';
 import { Question, Quiz } from '../types';
@@ -29,7 +29,7 @@ export default function QuizCreator({ onClose, editQuiz }: QuizCreatorProps) {
     if (editQuiz) {
       const fetchQuestions = async () => {
         try {
-          const qSnap = await getDocs(collection(db, `quizzes/${editQuiz.id}/questions`));
+          const qSnap = await getDocs(query(collection(db, `quizzes/${editQuiz.id}/questions`), orderBy('order', 'asc')));
           const qs = qSnap.docs.map(d => ({ id: d.id, ...d.data() } as Question));
           setQuestions(qs);
         } catch (err) {
@@ -120,10 +120,10 @@ export default function QuizCreator({ onClose, editQuiz }: QuizCreatorProps) {
 
       setSaveProgress('Асуултуудыг хадгалж байна...');
       const addBatch = writeBatch(db);
-      questions.forEach((q) => {
+      questions.forEach((q, idx) => {
         const { id, ...cleanQ } = q;
         const qRef = doc(collection(db, `quizzes/${quizId}/questions`));
-        addBatch.set(qRef, cleanQ);
+        addBatch.set(qRef, { ...cleanQ, order: idx });
       });
       
       await addBatch.commit();

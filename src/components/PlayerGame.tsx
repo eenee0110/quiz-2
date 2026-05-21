@@ -15,7 +15,8 @@ import {
   where, 
   getDocs,
   serverTimestamp,
-  increment
+  increment,
+  orderBy
 } from 'firebase/firestore';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
@@ -113,7 +114,7 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
       setSession(sData);
 
       try {
-        const qSnap = await getDocs(query(collection(db, `quizzes/${sData.quizId}/questions`)));
+        const qSnap = await getDocs(query(collection(db, `quizzes/${sData.quizId}/questions`), orderBy('order', 'asc')));
         const qs = qSnap.docs.map(d => ({ id: d.id, ...d.data() } as Question));
         setQuestions(qs);
         questionsRef.current = qs;
@@ -262,7 +263,7 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
          } else {
            // Fallback if not prefetched
            try {
-             const qSnap = await getDocs(query(collection(db, `quizzes/${sData.quizId}/questions`)));
+             const qSnap = await getDocs(query(collection(db, `quizzes/${sData.quizId}/questions`), orderBy('order', 'asc')));
              const fetchedQs = qSnap.docs.map(d => ({ id: d.id, ...d.data() } as Question));
              setQuestions(fetchedQs);
              questionsRef.current = fetchedQs;
@@ -278,13 +279,15 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
       }
     });
 
+    let playerTimeout: NodeJS.Timeout | null = null;
     const unsubPlayers = onSnapshot(collection(db, `game_sessions/${session.id}/players`), (snap) => {
-      // Always store locally so we have the latest without re-fetching
       latestPlayersData = snap.docs;
       
-      // Prevent render flooding during the question
       if (!isQuestionStatus) {
-         setAllPlayers(latestPlayersData.map(d => ({ id: d.id, ...d.data() } as Player)));
+         if (playerTimeout) clearTimeout(playerTimeout);
+         playerTimeout = setTimeout(() => {
+           setAllPlayers(latestPlayersData.map(d => ({ id: d.id, ...d.data() } as Player)));
+         }, 300);
       }
     });
 
@@ -596,7 +599,7 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
                        {!isCorrect && currentQuestion && (
                           <div className="mb-8 md:mb-12 flex flex-col items-center bg-black/10 py-4 px-6 rounded-3xl border border-current/20">
                              <div className="text-[10px] font-black uppercase tracking-[0.6em] opacity-60 mb-2">ЗӨВ ХАРИУЛТ:</div>
-                             <div className="text-xl sm:text-2xl font-black italic uppercase tracking-[-0.05em] leading-tight break-words max-w-[80vw] mx-auto opacity-90">{currentQuestion.options[currentQuestion.correctAnswerIndex]}</div>
+                             <div className="text-xl sm:text-2xl font-black italic uppercase tracking-[-0.05em] leading-tight break-words max-w-[80vw] mx-auto opacity-90">{currentQuestion.options[currentQuestion.correctIndex]}</div>
                           </div>
                        )}
 
@@ -625,28 +628,63 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
              )}
 
              {session.status === 'LEADERBOARD' && (
-                <div className="text-center py-12">
-                   <div className="text-[10px] font-black uppercase tracking-[0.6em] text-white/10 mb-12 italic">Чансааг тооцоолж байна</div>
-                   <motion.div 
-                     initial={{ scale: 0.9, y: 50 }}
-                     animate={{ scale: 1, y: 0 }}
-                     className="bg-white text-black p-8 md:p-16 rounded-[3rem] shadow-2xl shadow-white/10 border-none relative overflow-hidden"
-                   >
-                      <div className="relative z-10 w-full overflow-hidden">
-                        <div className="text-xs font-black uppercase tracking-[0.5em] opacity-40 mb-4 md:mb-8 break-words">Нийт чансаа</div>
-                        <div className="text-6xl sm:text-7xl md:text-[8rem] font-black italic tracking-[-0.1em] leading-none mb-6 md:mb-8 break-words flex flex-col items-center gap-2">#{myRank} <span className="text-2xl sm:text-3xl md:text-4xl text-black/40 tracking-normal">/ {allPlayers.length}</span></div>
-                        <div className="pt-8 md:pt-12 border-t-8 border-black/5 flex items-center justify-center gap-4 md:gap-6 text-2xl md:text-3xl font-black italic tracking-[-0.05em] flex-wrap">
-                           {player?.streak || 0} <Zap size={40} className="fill-[#00FF00] -rotate-12" /> <span className="opacity-40">ДАРААЛСАН</span>
-                        </div>
-                      </div>
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 scale-150 rotate-12 -z-0">
-                        <Trophy size={400} />
-                      </div>
-                   </motion.div>
+                <div className="text-center py-6">
+                   <div className="text-[10px] font-black uppercase tracking-[0.6em] text-white/40 mb-8 italic">Чансааны хүснэгт</div>
+                   
+                   <div className="space-y-3 md:space-y-4 w-full">
+                     {[...allPlayers].sort((a, b) => b.score - a.score).slice(0, 5).map((p, i) => (
+                       <motion.div 
+                         key={p.uid}
+                         initial={{ opacity: 0, y: 20 }}
+                         animate={{ opacity: 1, y: 0 }}
+                         transition={{ delay: i * 0.1 }}
+                         className={`flex items-center justify-between p-4 md:p-6 rounded-[1.5rem] border-2 md:border-4 ${
+                           p.uid === player?.uid 
+                             ? 'bg-[#00FF00] text-black border-[#00FF00] scale-105 shadow-xl shadow-[#00FF00]/20 z-10 relative'
+                             : i === 0 
+                             ? 'bg-white/10 text-white border-white/20'
+                             : 'bg-white/5 text-white/60 border-white/5'
+                         }`}
+                       >
+                         <div className="flex items-center gap-4">
+                           <div className={`font-black text-xl md:text-3xl italic w-8 ${p.uid === player?.uid ? 'text-black' : 'text-white/40'}`}>
+                             {i + 1}
+                           </div>
+                           <div className="font-black uppercase italic tracking-[-0.05em] text-lg md:text-2xl truncate max-w-[40vw] text-left">
+                             {p.name} {p.uid === player?.uid && '(ТА)'}
+                           </div>
+                         </div>
+                         <div className="text-right">
+                           <div className="font-black italic tracking-tighter text-2xl md:text-4xl leading-none">{p.score}</div>
+                         </div>
+                       </motion.div>
+                     ))}
+                   </div>
+                   
+                   {player && !([...allPlayers].sort((a, b) => b.score - a.score).slice(0, 5).some(p => p.uid === player.uid)) && (
+                     <div className="mt-6 border-t-2 border-white/10 pt-6">
+                       <motion.div 
+                         className="flex items-center justify-between p-4 md:p-6 rounded-[1.5rem] border-2 border-white/20 bg-white/5 text-white"
+                       >
+                         <div className="flex items-center gap-4">
+                           <div className="font-black text-xl md:text-3xl italic w-8 text-white/40">
+                             {myRank}
+                           </div>
+                           <div className="font-black uppercase italic tracking-[-0.05em] text-lg md:text-2xl truncate max-w-[40vw] text-left">
+                             {player.name} (ТА)
+                           </div>
+                         </div>
+                         <div className="text-right">
+                           <div className="font-black italic tracking-tighter text-2xl md:text-4xl leading-none">{player.score}</div>
+                         </div>
+                       </motion.div>
+                     </div>
+                   )}
+
                    <motion.p 
                      animate={{ opacity: [0.2, 0.5, 0.2] }}
                      transition={{ duration: 2, repeat: Infinity }}
-                     className="mt-16 text-white/20 font-black uppercase italic tracking-[0.4em] text-[10px]"
+                     className="mt-8 text-white/20 font-black uppercase italic tracking-[0.4em] text-[10px]"
                    >
                      Удахгүй...
                    </motion.p>
@@ -654,38 +692,72 @@ export default function PlayerGame({ onClose }: PlayerGameProps) {
              )}
 
              {session.status === 'FINAL' && (
-                <div className="text-center py-8">
+                <div className="text-center py-6">
                    <motion.div 
                      animate={{ y: [-10, 10] }}
                      transition={{ duration: 4, repeat: Infinity, repeatType: "mirror" }}
-                     className="relative mb-16"
+                     className="relative mb-12"
                    >
-                      <Trophy size={140} className="text-[#FFFF44] mx-auto drop-shadow-[0_0_50px_#FFFF44]" />
+                      <Trophy size={100} className="text-[#FFFF44] mx-auto drop-shadow-[0_0_50px_#FFFF44]" />
                    </motion.div>
                    
-                   <div className="bg-[#00FF00] text-black p-8 md:p-16 rounded-[3rem] shadow-2xl shadow-[#00FF00]/30 border-none relative overflow-hidden">
-                      <div className="relative z-10">
-                        <div className="text-[10px] font-black uppercase tracking-[0.6em] opacity-40 mb-4 md:mb-6 italic break-words">Аренагийн ялагч</div>
-                        <div className="text-5xl md:text-8xl font-black italic tracking-[-0.08em] leading-[0.8] mb-8 md:mb-12 uppercase text-center break-words max-w-[90vw] mx-auto">{name}</div>
-                        
-                        <div className="flex flex-col gap-6 md:gap-8 pt-8 md:pt-12 border-t-8 border-black/10">
-                           <div className="flex flex-col sm:flex-row items-center justify-between px-4 md:px-8 gap-2 border-b-2 sm:border-b-0 pb-4 sm:pb-0 border-black/5">
-                             <span className="text-[10px] text-center sm:text-left font-black uppercase tracking-[0.4em] opacity-30">Нийт оноо</span>
-                             <span className="text-4xl md:text-5xl font-black italic tracking-tighter">{player?.score} <span className="text-lg md:text-xl">ОНОО</span></span>
+                   <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tight text-white mb-8">ШИЛДЭГ 5 ТОГЛОГЧ</h2>
+                   
+                   <div className="space-y-3 md:space-y-4 w-full">
+                     {[...allPlayers].sort((a, b) => b.score - a.score).slice(0, 5).map((p, i) => (
+                       <motion.div 
+                         key={p.uid}
+                         initial={{ opacity: 0, x: -20 }}
+                         animate={{ opacity: 1, x: 0 }}
+                         transition={{ delay: i * 0.1 }}
+                         className={`flex items-center justify-between p-4 md:p-6 rounded-[1.5rem] border-2 md:border-4 ${
+                           p.uid === player?.uid 
+                             ? 'bg-[#00FF00] text-black border-[#00FF00] scale-105 shadow-xl shadow-[#00FF00]/20 z-10 relative'
+                             : i === 0 
+                             ? 'bg-white/10 text-white border-white/20'
+                             : 'bg-white/5 text-white/60 border-white/5'
+                         }`}
+                       >
+                         <div className="flex items-center gap-4">
+                           <div className={`font-black text-xl md:text-3xl italic w-8 ${p.uid === player?.uid ? 'text-black' : 'text-white/40'}`}>
+                             {i + 1}
                            </div>
-                           <div className="flex flex-col sm:flex-row items-center justify-between px-4 md:px-8 gap-2">
-                             <span className="text-[10px] text-center sm:text-left font-black uppercase tracking-[0.4em] opacity-30">Ялалтын бүртгэл</span>
-                             <span className="text-3xl sm:text-4xl md:text-5xl font-black italic tracking-tighter">#{myRank} <span className="text-xl sm:text-2xl text-black/40">/ {allPlayers.length}</span></span>
+                           <div className="font-black uppercase italic tracking-[-0.05em] text-lg md:text-2xl truncate max-w-[40vw] text-left">
+                             {p.name} {p.uid === player?.uid && '(ТА)'}
                            </div>
-                        </div>
-                      </div>
+                         </div>
+                         <div className="text-right">
+                           <div className="font-black italic tracking-tighter text-2xl md:text-4xl leading-none">{p.score}</div>
+                         </div>
+                       </motion.div>
+                     ))}
                    </div>
+                   
+                   {player && !([...allPlayers].sort((a, b) => b.score - a.score).slice(0, 5).some(p => p.uid === player.uid)) && (
+                     <div className="mt-6 border-t-2 border-white/10 pt-6">
+                       <motion.div 
+                         className="flex items-center justify-between p-4 md:p-6 rounded-[1.5rem] border-2 border-white/20 bg-white/5 text-white"
+                       >
+                         <div className="flex items-center gap-4">
+                           <div className="font-black text-xl md:text-3xl italic w-8 text-white/40">
+                             {myRank}
+                           </div>
+                           <div className="font-black uppercase italic tracking-[-0.05em] text-lg md:text-2xl truncate max-w-[40vw] text-left">
+                             {player.name} (ТА)
+                           </div>
+                         </div>
+                         <div className="text-right">
+                           <div className="font-black italic tracking-tighter text-2xl md:text-4xl leading-none">{player.score}</div>
+                         </div>
+                       </motion.div>
+                     </div>
+                   )}
 
                    <button 
                     onClick={disconnect}
-                    className="group mt-24 flex items-center justify-center gap-6 w-full py-10 rounded-[2.5rem] bg-white/[0.03] hover:bg-white text-white/30 hover:text-black border-4 border-white/5 hover:border-white font-black text-3xl uppercase italic tracking-[-0.05em] transition-all active:scale-95"
+                    className="group mt-16 flex items-center justify-center gap-6 w-full py-8 rounded-[2rem] bg-white/[0.03] hover:bg-white text-white/30 hover:text-black border-4 border-white/5 hover:border-white font-black text-2xl uppercase italic tracking-[-0.05em] transition-all active:scale-95"
                    >
-                     ТОГЛООМООС ГАРАХ <X size={40} className="group-hover:rotate-90 transition-transform" />
+                     ГАРАХ <X size={32} className="group-hover:rotate-90 transition-transform" />
                    </button>
                 </div>
              )}

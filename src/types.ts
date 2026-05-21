@@ -14,6 +14,7 @@ export interface Quiz {
 
 export interface Question {
   id: string;
+  order?: number;
   text: string;
   options: string[];
   correctIndex: number;

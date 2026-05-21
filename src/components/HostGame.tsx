@@ -74,7 +74,7 @@ export default function HostGame({ quizId, onClose }: HostGameProps) {
         }
         const quizData = qSnap.data() as Quiz;
         
-        const qsSnap = await getDocs(query(collection(db, `quizzes/${quizId}/questions`)));
+        const qsSnap = await getDocs(query(collection(db, `quizzes/${quizId}/questions`), orderBy('order', 'asc')));
         const questionsList = qsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Question));
         
         if (questionsList.length === 0) {
@@ -107,12 +107,20 @@ export default function HostGame({ quizId, onClose }: HostGameProps) {
           }
         });
 
+        let playerTimeout: NodeJS.Timeout | null = null;
         unsubP = onSnapshot(collection(db, `game_sessions/${sessionId}/players`), (snap) => {
-          setPlayers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Player)));
+          if (playerTimeout) clearTimeout(playerTimeout);
+          playerTimeout = setTimeout(() => {
+            setPlayers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Player)));
+          }, 250);
         });
 
+        let responseTimeout: NodeJS.Timeout | null = null;
         unsubR = onSnapshot(collection(db, `game_sessions/${sessionId}/responses`), (snap) => {
-          setResponses(snap.docs.map(d => ({ id: d.id, ...d.data() } as Response)));
+          if (responseTimeout) clearTimeout(responseTimeout);
+          responseTimeout = setTimeout(() => {
+            setResponses(snap.docs.map(d => ({ id: d.id, ...d.data() } as Response)));
+          }, 250);
         });
       } catch (err: any) {
         console.error("Game Init Error:", err);
@@ -419,7 +427,11 @@ export default function HostGame({ quizId, onClose }: HostGameProps) {
                            className="bg-white/5 p-6 sm:p-8 rounded-[2rem] border-2 border-white/5 font-black italic tracking-tighter flex items-center gap-4 sm:gap-8 relative overflow-hidden shadow-xl"
                         >
                            <div className={`w-8 h-8 sm:w-12 sm:h-12 flex-shrink-0 rounded-xl sm:rounded-2xl ${['bg-[#FF4444]', 'bg-[#4444FF]', 'bg-[#FFFF44]', 'bg-[#44FF44]'][i]} shadow-[0_4px_15px_rgba(0,0,0,0.5)]`}></div>
-                           <span className="leading-[0.9] pr-4 sm:pr-8 text-lg sm:text-xl md:text-2xl lg:text-3xl whitespace-normal break-words uppercase flex-1">{opt}</span>
+                           <span className={`leading-[0.9] pr-4 sm:pr-8 flex-1 whitespace-nowrap overflow-hidden text-ellipsis uppercase ${
+                             opt.length > 30 ? 'text-xs sm:text-sm md:text-base' : 
+                             opt.length > 15 ? 'text-sm sm:text-base md:text-lg' : 
+                             'text-lg sm:text-xl md:text-2xl lg:text-3xl'
+                           }`}>{opt}</span>
                            <div className="absolute right-0 top-0 bottom-0 w-2 opacity-20" style={{ backgroundColor: ['#FF4444', '#4444FF', '#FFFF44', '#44FF44'][i] }}></div>
                         </motion.div>
                      ))}
@@ -513,7 +525,11 @@ export default function HostGame({ quizId, onClose }: HostGameProps) {
                 animate={{ y: 0 }}
                 className="bg-[#00FF00] text-black py-12 px-6 md:py-20 md:px-12 rounded-[3rem] md:rounded-[5rem] text-4xl sm:text-5xl md:text-[8vw] font-black uppercase italic tracking-[-0.08em] leading-[0.8] mb-16 shadow-2xl shadow-[#00FF00]/20 border-none relative overflow-hidden"
               >
-                <div className="relative z-10 break-words">{currentQ.options[currentQ.correctIndex]}</div>
+                <div className={`relative z-10 whitespace-nowrap overflow-hidden text-ellipsis ${
+                  currentQ.options[currentQ.correctIndex].length > 30 ? 'text-2xl sm:text-3xl md:text-5xl' :
+                  currentQ.options[currentQ.correctIndex].length > 15 ? 'text-3xl sm:text-4xl md:text-6xl' :
+                  ''
+                }`}>{currentQ.options[currentQ.correctIndex]}</div>
                 <div className="absolute top-0 right-0 p-8 opacity-10"><CheckCircle2 className="w-[120px] h-[120px] md:w-[200px] md:h-[200px]" /></div>
               </motion.div>
               
@@ -604,42 +620,53 @@ export default function HostGame({ quizId, onClose }: HostGameProps) {
               animate={{ opacity: 1 }}
               className="text-center w-full max-w-5xl"
             >
-              <div className="relative mb-20">
+              <div className="relative mb-8 md:mb-16">
                  <motion.div 
                    animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
                    transition={{ duration: 3, repeat: Infinity }}
                    className="absolute inset-0 bg-[#00FF00] blur-[150px] rounded-full -z-10"
                  ></motion.div>
-                 <Trophy size={160} className="text-[#FFFF44] mx-auto mb-12 drop-shadow-[0_0_50px_#FFFF44]" />
-                 <h1 className="text-[25vw] md:text-[300px] font-black uppercase italic tracking-[-0.1em] leading-none opacity-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 select-none">ТОГЛООМ</h1>
+                 <Trophy size={100} className="text-[#FFFF44] mx-auto mb-6 md:mb-8 drop-shadow-[0_0_50px_#FFFF44]" />
+                 <h1 className="text-[20vw] md:text-[200px] font-black uppercase italic tracking-[-0.1em] leading-none opacity-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 select-none">ТОГЛООМ</h1>
+                 <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tight text-white mb-8">ШИЛДЭГ 5 ТОГЛОГЧ</h2>
               </div>
               
-              <div className="bg-[#00FF00] text-black w-full max-w-4xl p-10 md:p-16 xl:p-24 rounded-[4rem] md:rounded-[6rem] shadow-[0_20px_60px_rgba(0,255,0,0.2)] border-8 md:border-[12px] border-black inline-block relative overflow-hidden group">
-                 <motion.div 
-                   animate={{ x: [-500, 500] }}
-                   transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 pointer-events-none"
-                 />
-                 <div className="relative z-10">
-                   <div className="text-[10px] font-black uppercase tracking-[0.6em] opacity-40 mb-4 md:mb-8 italic break-words">Тоглоомын ялагч</div>
-                   <div className="text-5xl sm:text-6xl md:text-8xl xl:text-[10vw] font-black italic tracking-[-0.1em] uppercase leading-[0.8] mb-8 md:mb-12 break-words">
-                     {[...players].sort((a, b) => b.score - a.score)[0]?.name || 'МЭДЭГДЭХГҮЙ'}
-                   </div>
-                   <div className="flex flex-col sm:flex-row items-center justify-center gap-8 md:gap-12 border-t-8 border-black/5 pt-8 md:pt-12">
-                      <div className="text-center sm:text-left">
-                         <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mb-2">Нийт оноо</div>
-                         <div className="text-4xl sm:text-5xl md:text-6xl font-black italic tracking-tighter leading-none">{[...players].sort((a, b) => b.score - a.score)[0]?.score} <span className="text-xl md:text-2xl mt-auto">ОНОО</span></div>
-                      </div>
-                      <div className="w-full sm:w-px h-px sm:h-16 bg-black/10"></div>
-                      <div className="text-center sm:text-right">
-                         <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mb-2">Ялалтын бүртгэл</div>
-                         <div className="text-4xl sm:text-5xl md:text-6xl font-black italic tracking-tighter leading-none">1-Р БАЙР</div>
-                      </div>
-                   </div>
-                 </div>
+              <div className="space-y-4 md:space-y-6 w-full max-w-4xl mx-auto px-4 md:px-0">
+                {[...players].sort((a, b) => b.score - a.score).slice(0, 5).map((p, index) => (
+                  <motion.div 
+                    key={p.uid}
+                    initial={{ x: -50, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`flex items-center justify-between p-6 md:p-8 rounded-[2rem] border-4 ${
+                      index === 0 
+                        ? 'bg-[#00FF00] text-black border-[#00FF00] shadow-[0_10px_30px_rgba(0,255,0,0.3)]' 
+                        : index === 1
+                        ? 'bg-white/10 text-white border-white/20'
+                        : index === 2
+                        ? 'bg-[#CD7F32]/20 text-[#CD7F32] border-[#CD7F32]/30'
+                        : 'bg-white/5 text-white/60 border-white/5'
+                    }`}
+                  >
+                     <div className="flex items-center gap-6">
+                        <div className={`w-12 h-12 md:w-16 md:h-16 flex items-center justify-center font-black text-2xl md:text-4xl rounded-2xl ${
+                           index === 0 ? 'bg-black text-[#00FF00]' : 'bg-white/10'
+                        }`}>
+                           {index + 1}
+                        </div>
+                        <div className="text-left flex flex-col">
+                           <span className="font-black uppercase italic tracking-[-0.05em] text-2xl md:text-4xl leading-none truncate max-w-[40vw]">{p.name}</span>
+                        </div>
+                     </div>
+                     <div className="text-right">
+                        <div className="font-black italic tracking-tighter text-3xl md:text-5xl leading-none">{p.score}</div>
+                        <div className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] opacity-40">ОНОО</div>
+                     </div>
+                  </motion.div>
+                ))}
               </div>
 
-              <div className="mt-32">
+              <div className="mt-20">
                  <button 
                   onClick={onClose} 
                   className="group inline-flex items-center gap-4 text-white/20 hover:text-white font-black uppercase italic text-2xl tracking-[0.2em] transition-all"
